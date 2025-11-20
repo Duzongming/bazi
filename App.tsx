@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Calendar, Clock, Sparkles, Copy, Check, Compass, Sun, User, ExternalLink, Bot, Zap, Activity, GitMerge, Eye, Thermometer, Wind, Search, RotateCcw, BookOpen, ChevronRight, Layers, Feather, Moon, Settings, Plus, Trash2, Save, X, Edit3, Undo, GitCommit, Globe, Home, Shield, Anchor } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import React, { useState, useEffect, useMemo } from 'react';
+import { Calendar, Clock, Sparkles, Copy, Check, Compass, Bot, Zap, Activity, GitMerge, Eye, Thermometer, Wind, Search, RotateCcw, BookOpen, ChevronRight, Layers, Feather, Moon, Settings, Plus, Trash2, X, Edit3, Undo, ExternalLink, Anchor } from 'lucide-react';
 import { Gender, BaziResult, LuckPillar, LiuNian, LiuYue, ReverseResult, Pillar } from './types';
 import { calculateAllPillars, calculateInteractions, findDatesFromPillars, HEAVENLY_STEMS, EARTHLY_BRANCHES } from './utils/baziHelper';
 import { PRESET_THEORIES, ANALYSIS_MODES, TheoryModule } from './utils/mangpaiKnowledge';
@@ -45,10 +44,7 @@ const App: React.FC = () => {
   const [editingTheory, setEditingTheory] = useState<Partial<TheoryModule> | null>(null);
 
   const [analysisMode, setAnalysisMode] = useState<string>('comprehensive');
-  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
-  const [aiAnalysisResult, setAiAnalysisResult] = useState<string>('');
   const [showNotesInput, setShowNotesInput] = useState(false); 
-  const resultEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const result = calculateAllPillars(birthDate, birthTime, gender, isLunar, isUnknownTime);
@@ -57,7 +53,6 @@ const App: React.FC = () => {
     else setSelectedLuckId('luck-0');
     setSelectedYear(null);
     setSelectedMonth(null);
-    setAiAnalysisResult(''); 
     
     if (isUnknownTime) {
         if (analysisMode !== 'three_pillars' && analysisMode !== 'deduce_time') {
@@ -103,12 +98,6 @@ const App: React.FC = () => {
           });
       }
   }, [analysisMode]);
-
-  useEffect(() => {
-      if (isAiAnalyzing && resultEndRef.current) {
-          resultEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }
-  }, [aiAnalysisResult, isAiAnalyzing]);
 
   const getActiveLuckPillar = () => {
       if (!bazi) return null;
@@ -445,66 +434,6 @@ ${taskInstruction}
         setCopyFeedback(null);
     }, 1500);
   }
-
-  const runAiAnalysis = async () => {
-    const finalPrompt = buildFullPrompt();
-    if (!finalPrompt) return;
-
-    if (typeof window !== 'undefined' && (window as any).aistudio) {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            const success = await (window as any).aistudio.openSelectKey();
-            if (!success) return;
-        }
-    }
-
-    setIsAiAnalyzing(true);
-    setAiAnalysisResult('');
-    setShowNotesInput(false);
-
-    try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        
-        const response = await ai.models.generateContentStream({
-            model: 'gemini-2.5-flash',
-            contents: finalPrompt,
-        });
-
-        for await (const chunk of response) {
-            const text = chunk.text;
-            if (text) {
-                setAiAnalysisResult(prev => prev + text);
-            }
-        }
-    } catch (error) {
-        console.error("AI Analysis Error:", error);
-        setAiAnalysisResult("分析过程中出现错误，请检查网络或API Key设置。");
-    } finally {
-        setIsAiAnalyzing(false);
-    }
-  };
-
-  const renderMarkdown = (text: string) => {
-    return text.split('\n').map((line, i) => {
-        if (line.startsWith('### ')) return <h3 key={i} className="text-lg font-bold text-stone-700 mt-6 mb-3 border-b border-stone-200 pb-1 flex items-center font-serif"><Sparkles className="w-4 h-4 mr-2 text-amber-600"/>{line.replace('### ', '')}</h3>;
-        if (line.startsWith('#### ')) return <h4 key={i} className="text-base font-bold text-stone-800 mt-4 mb-2">{line.replace('#### ', '')}</h4>;
-        if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-bold text-stone-800 mt-8 mb-4 border-l-4 border-stone-800 pl-3 bg-stone-100/50 py-1 rounded-r font-serif">{line.replace('## ', '')}</h2>;
-        
-        if (line.includes('🎯') || line.includes('📝') || line.includes('💡') || line.includes('⚠️')) return <div key={i} className="text-base font-bold text-stone-800 mt-3 mb-2 bg-stone-50 p-3 rounded-lg border border-stone-200 flex items-start gap-2">{line}</div>;
-        
-        if (line.trim().startsWith('- **')) {
-             const content = line.replace('- **', '').replace('**', '');
-             const parts = content.split('：');
-             return <li key={i} className="ml-4 text-sm text-stone-600 mb-2 list-none relative pl-4 before:content-['•'] before:absolute before:text-stone-400 before:font-bold"><strong className="text-stone-900">{parts[0]}：</strong>{parts.slice(1).join('：')}</li>;
-        }
-        if (line.trim().startsWith('- ')) return <li key={i} className="ml-4 text-sm text-stone-600 mb-1 list-disc marker:text-stone-400">{line.replace('- ', '')}</li>;
-        if (line.trim().startsWith('1. ') || line.trim().startsWith('2. ')) return <div key={i} className="ml-2 text-sm text-stone-600 mb-2 font-medium">{line}</div>;
-
-        return <p key={i} className="text-sm text-stone-700 mb-2 leading-relaxed" dangerouslySetInnerHTML={{
-            __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-stone-900 font-bold">$1</strong>')
-        }}></p>;
-    });
-  };
 
   return (
     <div className="min-h-screen py-4 px-4 md:py-8 md:px-6 font-sans text-stone-800 selection:bg-stone-200">
@@ -1116,68 +1045,42 @@ ${taskInstruction}
                     )}
 
                     {/* Action Bar */}
-                    <div className="flex gap-4">
+                    <div className="flex flex-col gap-4 mt-8">
                          <button
-                            onClick={runAiAnalysis}
-                            disabled={isAiAnalyzing}
-                            className={`flex-1 h-14 rounded-xl font-bold text-base flex items-center justify-center transition-all shadow-xl ${
-                                isAiAnalyzing 
-                                ? 'bg-stone-100 text-stone-400 cursor-not-allowed' 
-                                : 'bg-stone-900 text-white hover:bg-black hover:scale-[1.01] hover:shadow-2xl'
-                            }`}
+                            onClick={handleCopyOnly}
+                            className="w-full h-14 rounded-xl font-bold text-base flex items-center justify-center transition-all shadow-xl bg-stone-900 text-white hover:bg-black hover:scale-[1.01] hover:shadow-2xl group"
                          >
-                            {isAiAnalyzing ? (
+                            {copyFeedback === 'full-text' ? (
                                 <>
-                                    <Activity className="w-5 h-5 mr-3 animate-spin text-stone-400" />
-                                    正在深度推演命理逻辑...
+                                    <Check className="w-5 h-5 mr-3 text-emerald-400" />
+                                    已复制到剪贴板
                                 </>
                             ) : (
                                 <>
-                                    <Sparkles className="w-5 h-5 mr-3 text-amber-300" />
-                                    开始 AI 分析
+                                    <Copy className="w-5 h-5 mr-3 text-stone-300 group-hover:text-white transition-colors" />
+                                    一键复制完整提示词 (Copy Prompt)
                                 </>
                             )}
                          </button>
-                         <button
-                             onClick={handleCopyOnly}
-                             className="w-14 h-14 flex items-center justify-center rounded-xl bg-white border border-stone-200 text-stone-400 hover:text-stone-900 hover:border-stone-400 transition-all shadow-sm hover:shadow-md"
-                             title="复制完整 Prompt"
-                         >
-                             <Copy className="w-6 h-6" />
-                         </button>
-                    </div>
 
-                    {/* Result Area */}
-                    {aiAnalysisResult && (
-                        <div className="mt-10 pt-10 border-t border-dashed border-stone-200 animate-in fade-in">
-                            <div className="prose prose-stone max-w-none">
-                                {renderMarkdown(aiAnalysisResult)}
-                            </div>
-                            <div ref={resultEndRef} />
-                        </div>
-                    )}
-                    
-                    {!aiAnalysisResult && !isAiAnalyzing && (
-                        <div className="mt-10 text-center">
-                             <p className="text-xs text-stone-400 mb-4">或复制 Prompt 到其他平台</p>
-                             <div className="flex justify-center gap-3">
-                                 <button 
-                                     onClick={() => handleJump('https://chat.openai.com', 'ChatGPT')}
-                                     className="px-4 py-2 rounded-lg border border-stone-200 text-stone-500 text-xs font-bold hover:border-emerald-500 hover:text-emerald-600 transition-all flex items-center"
-                                 >
-                                     {copyFeedback === 'ChatGPT' ? <Check className="w-3 h-3 mr-1" /> : <ExternalLink className="w-3 h-3 mr-1" />}
-                                     ChatGPT
-                                 </button>
-                                 <button 
-                                     onClick={() => handleJump('https://claude.ai', 'Claude')}
-                                     className="px-4 py-2 rounded-lg border border-stone-200 text-stone-500 text-xs font-bold hover:border-orange-500 hover:text-orange-600 transition-all flex items-center"
-                                 >
-                                     {copyFeedback === 'Claude' ? <Check className="w-3 h-3 mr-1" /> : <ExternalLink className="w-3 h-3 mr-1" />}
-                                     Claude
-                                 </button>
-                             </div>
-                        </div>
-                    )}
+                         <div className="grid grid-cols-2 gap-4">
+                             <button 
+                                 onClick={() => handleJump('https://chat.openai.com', 'ChatGPT')}
+                                 className="px-4 py-3 rounded-xl border border-stone-200 text-stone-600 font-bold hover:border-emerald-500 hover:text-emerald-600 transition-all flex items-center justify-center shadow-sm bg-white"
+                             >
+                                 {copyFeedback === 'ChatGPT' ? <Check className="w-4 h-4 mr-2" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+                                 前往 ChatGPT
+                             </button>
+                             <button 
+                                 onClick={() => handleJump('https://claude.ai', 'Claude')}
+                                 className="px-4 py-3 rounded-xl border border-stone-200 text-stone-600 font-bold hover:border-orange-500 hover:text-orange-600 transition-all flex items-center justify-center shadow-sm bg-white"
+                             >
+                                 {copyFeedback === 'Claude' ? <Check className="w-4 h-4 mr-2" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+                                 前往 Claude
+                             </button>
+                         </div>
+                         <p className="text-center text-xs text-stone-400">生成提示词后，请复制并发送给 AI 模型进行分析</p>
+                    </div>
                 </div>
             </div>
           </div>
