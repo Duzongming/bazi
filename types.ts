@@ -12,6 +12,16 @@ export interface MangpaiInfo {
   specialGods: string[];  // '禄', '刃' specific markers for Mangpai analysis
 }
 
+export interface ShenShaItem {
+  name: string;
+  type: '吉' | '凶' | '平';
+  tier: 1 | 2 | 3; // 1: Core, 2: Major, 3: Minor
+  description?: string; // e.g., "财库", "官库"
+  isActivated?: boolean; // If true, engaged in Chong/He/Xing
+  interactionMsg?: string; // e.g., "被冲", "填实"
+  isKongWang?: boolean; // Special marker for Kongwang logic
+}
+
 export interface Pillar {
   gan: string; // Heavenly Stem
   zhi: string; // Earthly Branch
@@ -22,7 +32,8 @@ export interface Pillar {
   nayin: string; // Melodic Element
   zhangsheng: string; // 12 Life Stage (Day Master vs Branch)
   zizuo: string; // Self Sit (Stem vs Branch)
-  shensha: string[]; // Shen Sha
+  shensha: string[]; // Legacy string array (kept for compatibility if needed)
+  shenshaList: ShenShaItem[]; // New detailed list
   xunKong: string; // The empty branches for THIS pillar's Xun (e.g. "申酉")
   kongwang: string; // Status text
   isKongWang?: boolean;
@@ -86,6 +97,7 @@ export interface WuyunLiuqi {
     siTian: string;  // Heaven Control (First half year)
     zaiQuan: string; // Earth Control (Second half year)
     description: string; // General character
+    plainEnglish: string; // Simplified explanation for laypeople
 }
 
 export interface TCMProfile {
@@ -94,6 +106,12 @@ export interface TCMProfile {
     deficient: string[]; // Elements that are too weak
     organRisk: string[]; // Associated organs at risk
     advice: string; // General conditioning advice
+    elementScores: { [key: string]: number }; // 0-100 score for chart
+    wellnessGuide: {
+        diet: string[];
+        lifestyle: string[];
+        symptoms: string[]; // Likely symptoms
+    };
 }
 
 export interface BaziResult {
@@ -109,6 +127,7 @@ export interface BaziResult {
   gender: Gender;
   solarDate: string;
   lunarDateString?: string;
+  trueSolarTimeStr?: string; // Calculated True Solar Time
   dayMaster: string;
   solarTermDistance: string;
   qiyunDetail: string;
@@ -128,6 +147,21 @@ export interface ReverseResult {
     day: number;
     hourStr: string;
     solarTerm: string;
+}
+
+export interface SavedCase {
+    id: string;
+    name: string;
+    gender: Gender;
+    birthDate: string;
+    birthTime: string;
+    isUnknownTime: boolean;
+    isLunar: boolean;
+    province?: string;
+    city?: string;
+    longitude?: number | '';
+    notes?: string;
+    createdAt: number;
 }
 
 // --- Ziwei Dou Shu Types ---
